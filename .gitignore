@@ -1,0 +1,38 @@
+# Build output
+/bps-local
+/bps-local.exe
+/dist/
+/build/
+
+# Go
+*.exe
+*.test
+*.out
+
+# Local runtime noise
+bps-run.log
+*.log
+
+# Local credentials (the example file contains placeholders only)
+oauth.json
+auth.json
+*.har
+
+# Python helper bytecode
+__pycache__/
+
+# Local diagnostics and private runtime state
+.DS_Store
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.db
+*.db-shm
+*.db-wal
+*diagnostic*.json
+*result*.json
+/runtime/
+/auths/
+/.bps-local/

@@ -1,0 +1,5 @@
+{
+  "access_token": "REPLACE_WITH_AUTHORIZED_BPS_ACCESS_TOKEN",
+  "token_type": "Bearer",
+  "account_id": "REPLACE_WITH_ACCOUNT_ID"
+}
