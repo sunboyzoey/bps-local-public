@@ -155,7 +155,7 @@ curl -N http://127.0.0.1:8790/v1/responses \
 | `bind: address already in use` | 原有进程已占用端口；使用另一个 `--addr` 或先停止已确认的旧进程 |
 | `OAuth destination exists` | 使用新的 `--auth` 路径，登录不会覆盖旧文件 |
 | `basispoints_auth_unavailable` / AT 过期 | 检查当前 OAuth 路径与有效期，重新授权后使用新文件 |
-| WS 握手失败 | 检查明确配置的代理、网络可达性、授权及上游兼容性 |
+| WS 握手失败 | 普通桥接仅对发送 `response.create` 之前的 EOF、连接重置和瞬时超时最多尝试 3 次（共享 60 秒预算）；错误包含安全的 `reason` / `attempts`。HTTP 拒绝、认证/证书错误不自动重试；发送请求后不重放。诊断模式仍仅尝试一次。持续失败请检查明确配置的代理、网络可达性、授权及上游兼容性 |
 | `basispoints_ws_timeout` | 等待下一条上游事件超时；检查代理与上游，可按实际需求调整超时时间 |
 | HTTP 200 后出现 `error` 事件 | 流已建立但生成失败，应读取事件体；不能只按 HTTP 状态判断成功 |
 | `request_rejected` | 上游拒绝了请求；该错误本身不能证明具体并发上限、固定请求次数或封控原因 |
