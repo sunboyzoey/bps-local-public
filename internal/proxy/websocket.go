@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/sunboyzoey/GPT-BPS/internal/retryafter"
 )
 
 // Leave space for SSE framing below the existing bridge's 16 MiB event limit.
@@ -110,35 +109,17 @@ func (s *Server) openWebSocket(ctx context.Context, body []byte, token, accountI
 	for name, value := range profile {
 		request.Header.Set(name, value)
 	}
-	client, releaseTransport := scopedWebSocketClient(ctx, s.client)
+	conn, releaseTransport, err := s.dialWebSocket(ctx, u.String(), request.Header, token)
+	if err != nil {
+		return nil, err
+	}
 	transferred := false
 	defer func() {
 		if !transferred {
 			releaseTransport()
 		}
 	}()
-	dialCtx, cancelDial := context.WithTimeout(ctx, 60*time.Second)
-	conn, resp, err := websocket.Dial(dialCtx, u.String(), &websocket.DialOptions{
-		HTTPClient:   client,
-		HTTPHeader:   request.Header,
-		Subprotocols: []string{"responses", "openai-bearer." + token},
-	})
-	cancelDial()
 	observer := protocolObserverFromContext(ctx)
-	observer.observeHandshake(resp)
-	if err != nil {
-		// Do not expose websocket.Dial's error: a server may echo the bearer
-		// subprotocol in its error message or a redirect URL.
-		if resp != nil {
-			if resp.Body != nil {
-				_ = resp.Body.Close()
-			}
-			if resp.StatusCode != http.StatusSwitchingProtocols {
-				return nil, &upstreamRejection{status: resp.StatusCode, retry: retryafter.Seconds(resp.Header.Get("Retry-After"))}
-			}
-		}
-		return nil, fmt.Errorf("WebSocket handshake failed; check proxy, credentials and upstream WebSocket support")
-	}
 	conn.SetReadLimit(maxWSMessage)
 	if s.cfg.Verbose {
 		log.Printf("upstream ws handshake=101")
