@@ -45,7 +45,8 @@ func text(value any) string {
 	return s
 }
 
-// NormalizeEffort caps unsupported high tiers explicitly instead of falling back to medium.
+// NormalizeEffort preserves the legacy BPS effort mappings. Model-aware callers
+// must use NormalizeEffortForModel so a requested GPT-6.2 max is not lowered.
 func NormalizeEffort(effort string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(effort)) {
 	case "", "medium":
@@ -58,6 +59,30 @@ func NormalizeEffort(effort string) (string, error) {
 		return "low", nil
 	default:
 		return "", fmt.Errorf("basispoints reasoning effort %q is unsupported", effort)
+	}
+}
+
+// NormalizeEffortForModel keeps GPT-6.2's explicit max effort on the wire. This
+// describes local translation, not upstream entitlement: BPS may reject a model
+// or effort, and such failures must not trigger a downgrade or model fallback.
+// Unknown models retain legacy behavior and are not blocked by a model catalog.
+func NormalizeEffortForModel(model, effort string) (string, error) {
+	switch strings.TrimSpace(model) {
+	case "gpt-6.2-astra", "gpt-6.2-sol":
+		switch normalized := strings.ToLower(strings.TrimSpace(effort)); normalized {
+		case "":
+			return "medium", nil
+		case "low", "medium", "high", "xhigh", "max":
+			return normalized, nil
+		case "x-high", "extra-high", "extra_high":
+			return "xhigh", nil
+		case "none", "minimal":
+			return "low", nil
+		default:
+			return "", fmt.Errorf("basispoints reasoning effort %q is unsupported for %s; use low, medium, high, xhigh or max", effort, model)
+		}
+	default:
+		return NormalizeEffort(effort)
 	}
 }
 
@@ -152,7 +177,7 @@ func PrepareWithOptions(raw []byte, scope string, replay *ReplayCache, options P
 			}
 		}
 	}
-	effort, err := NormalizeEffort(requested)
+	effort, err := NormalizeEffortForModel(model, requested)
 	if err != nil {
 		return nil, nil, err
 	}

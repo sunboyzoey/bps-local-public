@@ -24,7 +24,7 @@ func registerProtocolDiagnosticFlags(fs *flag.FlagSet) *protocolDiagnosticFlags 
 	options := &protocolDiagnosticFlags{}
 	fs.BoolVar(&options.Enabled, "protocol-diagnostic", false, "observe two short BPS WebSocket requests through the explicit proxy, then exit")
 	fs.StringVar(&options.Model, "diagnostic-model", "gpt-6-astra", "requested model for the protocol diagnostic")
-	fs.StringVar(&options.Effort, "diagnostic-effort", "medium", "requested reasoning effort for the protocol diagnostic")
+	fs.StringVar(&options.Effort, "diagnostic-effort", "medium", "requested reasoning effort: none, low, medium, high, xhigh; GPT-6.2 Astra/Sol also accept max")
 	fs.StringVar(&options.Output, "diagnostic-output", "bps-protocol-diagnostic.json", "new diagnostic JSON report path; existing files are never overwritten")
 	return options
 }

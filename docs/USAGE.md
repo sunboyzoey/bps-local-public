@@ -141,6 +141,28 @@ curl -N http://127.0.0.1:8790/v1/responses \
   }'
 ```
 
+从 CLI `0.4.0` 起，`gpt-6.2-astra` 和 `gpt-6.2-sol` 使用以下推理强度规则。模型 ID 始终原样转发，不做模型别名或失败回退。例如：
+
+```bash
+curl -N http://127.0.0.1:8790/v1/responses \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"gpt-6.2-astra","input":"只回复 OK","stream":true,"reasoning":{"effort":"medium"}}'
+```
+
+| 请求中的 `reasoning.effort` | 这两个 6.2 模型实际发送的值 |
+|---|---|
+| 未填写或空值 | `medium` |
+| `low`、`medium`、`high`、`xhigh`、`max` | 原样发送 |
+| `none`、`minimal` | `low` |
+| `x-high`、`extra-high`、`extra_high` | `xhigh` |
+| `ultra` | 本地拒绝；如需 `max`，请显式填写，不自动降档 |
+
+其他不支持的强度值也会被拒绝。上述规则只按这两个精确模型 ID 匹配；其他模型保留原有行为，包括将 `max`、`ultra` 映射为 `xhigh`，不新增模型白名单。CLI 没有模型列表接口，也不会根据账号授权自动选择模型。
+
+本次测试仅确认本地转换及 mock WebSocket 请求中的模型与强度，未验证真实 BPS 账号权限或上游 `max` 支持情况。上游不支持所请求的模型或强度时，错误会返回给调用方，不改用其他模型或较低强度。
+
+官方 API 的上下文和工具能力不能直接视为 BPS 的能力；本轮仍沿用 `context_management` 默认值 `200000` 及现有工具转换规则。
+
 链路为：本地 HTTP 请求 → 等待固定 task 槽位 → 转换为 BPS 请求 → 独立的上游 WebSocket → 转换为 Responses SSE 事件。上游只支持 WebSocket，旧 `--upstream-transport sse` 会被拒绝。每次本地请求建立自己的上游 WebSocket；发送生成请求后不会自动重连并重发。发送前的少数瞬时握手错误可安全重试，规则见排查表。
 
 客户端负责保留并发送需要的上下文。例如第二轮请求包含第一轮的提问与回答：
@@ -214,7 +236,7 @@ curl -N http://127.0.0.1:8790/v1/responses \
 | `--version` | 打印构建版本后退出 |
 | `--protocol-diagnostic` | 经显式代理执行两次短 WS 诊断请求，保存报告后退出 |
 | `--diagnostic-model` | `gpt-6-astra`，诊断请求指定的模型，不代表账号一定可用 |
-| `--diagnostic-effort` | `medium`，诊断推理强度 |
+| `--diagnostic-effort` | `medium`，诊断推理强度；`max` 仅用于 `gpt-6.2-astra` 或 `gpt-6.2-sol` |
 | `--diagnostic-output` | `bps-protocol-diagnostic.json`，必须是尚不存在的报告文件 |
 
 诊断模式需要 `--proxy` 或 `BPS_LOCAL_PROXY`，会产生真实请求和用量；不能与登录、本地检查、ARC、版本输出或路径输出模式组合。它只记录协议观测，不判断账号是否“降智”，不改变账号状态。日常使用无需运行。

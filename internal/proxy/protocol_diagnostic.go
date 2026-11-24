@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/sunboyzoey/GPT-BPS/internal/auth"
+	"github.com/sunboyzoey/GPT-BPS/internal/basispoints"
 )
 
 type ProtocolDiagnosticOptions struct {
@@ -51,17 +52,18 @@ type ProtocolDiagnosticShot struct {
 }
 
 type ProtocolDiagnosticReport struct {
-	Version           int                      `json:"version"`
-	Transport         string                   `json:"transport"`
-	Model             string                   `json:"model"`
-	ReasoningEffort   string                   `json:"reasoning_effort"`
-	QualityAssessment string                   `json:"quality_assessment"`
-	Conclusion        string                   `json:"conclusion"`
-	TicketComparison  string                   `json:"ticket_comparison"`
-	Failure           string                   `json:"failure,omitempty"`
-	StartedAt         time.Time                `json:"started_at"`
-	FinishedAt        time.Time                `json:"finished_at"`
-	Shots             []ProtocolDiagnosticShot `json:"shots"`
+	Version                 int                      `json:"version"`
+	Transport               string                   `json:"transport"`
+	Model                   string                   `json:"model"`
+	ReasoningEffort         string                   `json:"reasoning_effort"`
+	UpstreamReasoningEffort string                   `json:"upstream_reasoning_effort,omitempty"`
+	QualityAssessment       string                   `json:"quality_assessment"`
+	Conclusion              string                   `json:"conclusion"`
+	TicketComparison        string                   `json:"ticket_comparison"`
+	Failure                 string                   `json:"failure,omitempty"`
+	StartedAt               time.Time                `json:"started_at"`
+	FinishedAt              time.Time                `json:"finished_at"`
+	Shots                   []ProtocolDiagnosticShot `json:"shots"`
 }
 
 var diagnosticModel = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,99}$`)
@@ -129,10 +131,18 @@ func RunProtocolDiagnostic(ctx context.Context, cfg Config, store CredentialSour
 	}
 	switch options.ReasoningEffort {
 	case "none", "low", "medium", "high", "xhigh":
+	case "max":
+		// Keep legacy diagnostic inputs unchanged: only the explicit GPT-6.2
+		// models transmit max as max rather than remapping it to xhigh.
+		normalized, normalizeErr := basispoints.NormalizeEffortForModel(options.Model, options.ReasoningEffort)
+		if normalizeErr != nil || normalized != "max" {
+			return fail("diagnostic_invalid_effort")
+		}
 	default:
 		return fail("diagnostic_invalid_effort")
 	}
 	report.Model, report.ReasoningEffort = options.Model, options.ReasoningEffort
+	report.UpstreamReasoningEffort, _ = basispoints.NormalizeEffortForModel(options.Model, options.ReasoningEffort)
 	u, proxyErr := url.Parse(strings.TrimSpace(cfg.ProxyURL))
 	if proxyErr != nil || u.Hostname() == "" || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "socks5" && u.Scheme != "socks5h") {
 		return fail("diagnostic_proxy_required")

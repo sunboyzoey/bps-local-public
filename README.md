@@ -56,6 +56,20 @@ curl -N http://127.0.0.1:8790/v1/responses \
 
 本地接口仅监听回环地址，不要求客户端提供 API Key。它返回流式事件；应检查最终事件和内容，HTTP 连接成功不等于生成成功。
 
+## 6.2 模型
+
+CLI `0.4.0` 为 `gpt-6.2-astra` 和 `gpt-6.2-sol` 增加独立的推理强度处理。模型 ID 原样发送，不设置别名，也不会在上游失败后换成其他模型。例如：
+
+```bash
+curl -N http://127.0.0.1:8790/v1/responses \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"gpt-6.2-sol","input":"只回复 OK","stream":true,"reasoning":{"effort":"medium"}}'
+```
+
+使用 `gpt-6.2-astra` 时替换示例中的模型 ID 即可。这两个模型的 `low`、`medium`、`high`、`xhigh`、`max` 原样发送，省略强度时使用 `medium`；`ultra` 会被拒绝，需要最高档时请显式填写 `max`。兼容值映射及其他模型行为见 [请求与会话](docs/USAGE.md#4-请求与会话)。
+
+本次验证覆盖本地转换与 mock WebSocket 转发，未执行真实上游验收。账号能否使用这两个模型、BPS 是否接受 `max`，仍需以实际请求结果为准；上游不支持时返回错误，不自动降低强度。
+
 ## 使用范围
 
 - 支持 Responses 文本输入、客户端工具调用转换，以及上游事件到本地 SSE 的转换。

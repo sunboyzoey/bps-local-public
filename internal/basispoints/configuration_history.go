@@ -26,5 +26,11 @@ func historyConfigurationEffort(item object) (string, error) {
 	if !ok || effort == "" {
 		return "", fmt.Errorf("history configuration requires reasoning effort")
 	}
-	return NormalizeEffort(effort)
+	// Validate the historical vocabulary without applying the old model's
+	// downgrade mapping. The effective request model normalizes it once, after
+	// current-vs-historical precedence has been resolved in PrepareWithOptions.
+	if _, err := NormalizeEffort(effort); err != nil {
+		return "", err
+	}
+	return effort, nil
 }

@@ -16,6 +16,19 @@ go build -o bps-local ./cmd/bps-local
   --diagnostic-output ./bps-protocol-diagnostic.json
 ```
 
+默认模型仍为 `gpt-6-astra`。CLI `0.4.0` 可以显式指定 `gpt-6.2-astra` 或 `gpt-6.2-sol`；下面以 `gpt-6.2-sol` / `medium` 为例，同样最多发送两条真实短请求：
+
+```bash
+./bps-local --protocol-diagnostic \
+  --auth "$HOME/.bps-local/oauth.json" \
+  --proxy http://127.0.0.1:7890 \
+  --diagnostic-model gpt-6.2-sol \
+  --diagnostic-effort medium \
+  --diagnostic-output ./bps-protocol-diagnostic-6.2.json
+```
+
+这两个精确模型 ID 还允许显式设置 `--diagnostic-effort max`，发送到 BPS 的强度保持 `max`。模型与强度不会在上游拒绝后自动替换；`ultra` 不接受，需要 `max` 时必须显式指定。本次本地及 mock 测试不代表真实账号具有 6.2 模型权限，也不代表 BPS 已验证接受 `max`。
+
 `--auth` 默认使用 `BPS_AUTH_FILE`，否则读取 `~/.bps-local/oauth.json`。凭据必须属于 BPS 应用，且未过期；本地 JWT 声明校验不代表上游已授权，实际结果仍以 BPS 返回为准。
 
 代理必须通过 `--proxy` 或 `BPS_LOCAL_PROXY` 明确配置，支持 `http`、`https`、`socks5`、`socks5h`。没有代理时拒绝运行，不自动回退直连；TLS 证书校验保持启用。
@@ -24,7 +37,7 @@ go build -o bps-local ./cmd/bps-local
 | --- | --- | --- |
 | `--protocol-diagnostic` | `false` | 执行观测后退出 |
 | `--diagnostic-model` | `gpt-6-astra` | 请求模型；不代表该账号支持此模型 |
-| `--diagnostic-effort` | `medium` | 请求的推理强度，可选 `none`、`low`、`medium`、`high`、`xhigh` |
+| `--diagnostic-effort` | `medium` | 请求的推理强度，可选 `none`、`low`、`medium`、`high`、`xhigh`；`max` 仅用于 `gpt-6.2-astra` 或 `gpt-6.2-sol` |
 | `--diagnostic-output` | `bps-protocol-diagnostic.json` | 新报告文件路径，父目录必须已经存在 |
 | `--ws-idle-timeout` | `2m` | 上游 WebSocket 事件等待时间 |
 | `--upstream-rps` | `0` | 关闭启动限速；正整数分别限制每账号滚动 1 秒内的 WS 拨号和 `response.create` 次数 |
@@ -50,6 +63,8 @@ go build -o bps-local ./cmd/bps-local
 报告使用 `0600` 权限创建，并通过 `O_EXCL` 拒绝覆盖现有文件，包括 OAuth 文件和符号链接。重复运行时请使用新的 `--diagnostic-output` 路径；输出文件已存在时，在发送诊断请求前退出。
 
 终端只显示报告路径、完成或失败的固定摘要，以及“仅观测，不改变账号状态”。不会打印凭据、代理用户名密码或原始上游错误。JSON 中只保留允许的观测字段；敏感门票和会话标识以是否存在、长度或 HMAC 摘要等方式描述，不保存原值。Header 和事件名称也只保留允许名单中的原名，未知名称仅记录长度及本次运行专用的 HMAC 摘要。
+
+报告的 `reasoning_effort` 保留请求指定的强度，`upstream_reasoning_effort` 记录转换后用于上游请求的强度。例如，指定 `none` 时两者分别为 `none` 和 `low`；这两个 6.2 模型指定 `max` 时，两者均为 `max`。该字段在发送前生成，是否实际发送需结合 `shots` 判断；这些字段不证明上游实际使用了多少推理能力。
 
 运行器发生错误时仍尝试写入已收集的报告，并以非零状态退出。命令行参数、凭据文件加载或报告路径的前置检查失败时，可能尚未生成报告。报告写入失败同样返回非零状态；不会覆盖已有文件来补救。
 

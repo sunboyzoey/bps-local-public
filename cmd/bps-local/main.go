@@ -25,7 +25,7 @@ import (
 	"github.com/sunboyzoey/GPT-BPS/internal/proxy"
 )
 
-var version = "0.3.0"
+var version = "0.4.0"
 
 func main() {
 	log.SetFlags(0)
